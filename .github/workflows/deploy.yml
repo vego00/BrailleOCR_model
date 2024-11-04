@@ -1,0 +1,60 @@
+name: deploy
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 소스 코드 체크아웃
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      # Python 설정
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12' 
+
+      # 의존성 설치
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      # 환경 변수 파일 생성 (.env)
+      - name: Create .env file
+        run: |
+          echo "FLASK_APP=app.py" >> .env
+          echo "FLASK_ENV=production" >> .env
+          # 필요한 추가 환경 변수가 있다면 여기에 추가
+
+      # 애플리케이션 패키징
+      - name: Zip application for deployment
+        run: zip -r application.zip . -x "*.git*" "*.github*"
+
+      # AWS 인증 정보 설정
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # S3에 패키지 업로드
+      - name: Upload to S3
+        run: aws s3 cp application.zip s3://${{ secrets.BUCKET_NAME }}/application.zip
+
+      # CodeDeploy를 사용하여 배포 생성
+      - name: Deploy with AWS CodeDeploy
+        run: |
+          aws deploy create-deployment \
+            --application-name ${{ secrets.CODEDEPLOY_APP_NAME }} \
+            --deployment-group-name ${{ secrets.CODEDEPLOY_DG_NAME }} \
+            --deployment-config-name CodeDeployDefault.AllAtOnce \
+            --s3-location bucket=${{ secrets.BUCKET_NAME }},bundleType=zip,key=application.zip
