@@ -36,7 +36,7 @@ jobs:
 
       # 애플리케이션 패키징
       - name: Zip application for deployment
-        run: zip -r application.zip . -x "*.git*" "*.github*"
+        run: zip -r prediction_app.zip . -x "*.git*" "*.github*"
 
       # AWS 인증 정보 설정
       - name: Configure AWS credentials
@@ -48,7 +48,7 @@ jobs:
 
       # S3에 패키지 업로드
       - name: Upload to S3
-        run: aws s3 cp application.zip s3://${{ secrets.BUCKET_NAME }}/application.zip
+        run: aws s3 cp prediction_app.zip s3://${{ secrets.BUCKET_NAME }}/prediction_app.zip
 
       # CodeDeploy를 사용하여 배포 생성
       - name: Deploy with AWS CodeDeploy
@@ -57,4 +57,4 @@ jobs:
             --application-name ${{ secrets.CODEDEPLOY_APP_NAME }} \
             --deployment-group-name ${{ secrets.CODEDEPLOY_DG_NAME }} \
             --deployment-config-name CodeDeployDefault.AllAtOnce \
-            --s3-location bucket=${{ secrets.BUCKET_NAME }},bundleType=zip,key=application.zip
+            --s3-location bucket=${{ secrets.BUCKET_NAME }},bundleType=zip,key=prediction_app.zip
