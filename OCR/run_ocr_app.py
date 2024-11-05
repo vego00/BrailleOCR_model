@@ -9,8 +9,8 @@ import boto3
 from pathlib import Path
 import PIL.Image
 
-import L1_OCR.local_config as local_config
-import L1_OCR.model.infer_retinanet as infer_retinanet
+import OCR.local_config as local_config
+import OCR.model.infer_retinanet as infer_retinanet
 
 aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
 aws_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
@@ -25,7 +25,7 @@ s3 = boto3.client(
 )
 
 # model_weights = 'model.t7'
-local_model_path = os.path.join(local_config.data_path, 'weights', 'model_weights.pth')
+local_model_path = os.path.join(local_config.data_path, 'OCR', 'weights', 'model_weights.pth')
 
 with open(local_model_path, 'wb') as f:
     s3.download_fileobj(bucket_name, file_key, f)

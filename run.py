@@ -1,4 +1,4 @@
-import L1_OCR.run_ocr_app as run_ocr_app
+import OCR.run_ocr_app as run_ocr_app
 # import L2_BrailleToText.brl_to_txt as b2t
 # import L3_ContextualErrorCorrection.contextual_error_correction as cec
 # import L4_TextToBraille.txt_to_brl as t2b
