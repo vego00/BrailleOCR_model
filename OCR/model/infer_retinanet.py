@@ -373,29 +373,29 @@ class BrailleInference:
                }
         return res
 
-    def save_results(self, result_dict, reverse_page, results_dir, image, image_name):
-        suff = ".rev" if reverse_page else ""
+    def save_results(self, result_dict, reverse_page, image, image_name):
+        # suff = ".rev" if reverse_page else ""
         
-        data_dir = Path(results_dir) / "data"
+        # data_dir = Path(results_dir) / "data"
         
         # 각 디렉토리 경로 설정
-        img_dir = Path(data_dir) / "images"
-        json_dir = Path(data_dir) / "annotations"
+        # img_dir = Path(data_dir) / "images"
+        # json_dir = Path(data_dir) / "annotations"
         
         # 디렉토리가 존재하지 않으면 생성
-        data_dir.mkdir(parents=True, exist_ok=True)
-        img_dir.mkdir(parents=True, exist_ok=True)
-        json_dir.mkdir(parents=True, exist_ok=True)
+        # data_dir.mkdir(parents=True, exist_ok=True)
+        # img_dir.mkdir(parents=True, exist_ok=True)
+        # json_dir.mkdir(parents=True, exist_ok=True)
         
         # 경로 설정
         # uuid_str = str(self.uuid_int)
         # marked_image_path = img_dir / (uuid_str + ".jpg")
         # json_path = json_dir / (uuid_str + ".json")
-        marked_image_path = img_dir / image_name
-        json_path = json_dir / image_name.replace(".jpg", ".json")
+        # marked_image_path = img_dir / image_name
+        # json_path = json_dir / image_name.replace(".jpg", ".json")
         
         # 이미지 저장
-        result_dict["labeled_image" + suff].save(marked_image_path)
+        # result_dict["labeled_image" + suff].save(marked_image_path)
         
         # JSON 파일 저장
         boxes = []
@@ -434,12 +434,13 @@ class BrailleInference:
         # }
         
         # json_result = refine_json.main(json_result, boxes, labels)
-        json_result = refine_json.main(boxes, labels, image)
+        # json_result = refine_json.main(boxes, labels, image)
+        return refine_json.main(boxes, labels, image, image_name)
         
-        with open(json_path, "w", encoding='utf-8') as f:
-            json.dump(json_result, f, indent=4, ensure_ascii=False)
+        # with open(json_path, "w", encoding='utf-8') as f:
+        #     json.dump(json_result, f, indent=4, ensure_ascii=False)
         
-        return json_result
+        # return json_result
     
     def run_and_save(self, image_file, results_dir, target_stem, lang, extra_info, draw_refined,
                      remove_labeled_from_filename, find_orientation, align_results, process_2_sides, repeat_on_aligned,
@@ -459,11 +460,12 @@ class BrailleInference:
         if result_dict is None:
             return None
 
-        os.makedirs(results_dir, exist_ok=True)
+        return self.save_results(result_dict, False, image, image_name)
+        # os.makedirs(results_dir, exist_ok=True)
         
-        self.result = self.save_results(result_dict, False, results_dir, image, image_name)
+        # self.result = self.save_results(result_dict, False, image, image_name)
         
-        return self.result
+        # return self.result
 
     def process_dir_and_save(self, img_filename_mask, results_dir, lang, extra_info, draw_refined,
                              remove_labeled_from_filename, find_orientation, process_2_sides, align_results,

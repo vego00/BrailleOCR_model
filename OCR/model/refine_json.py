@@ -206,7 +206,7 @@ def labels_to_brl(label_lines):
     return brl_lines
 
 
-def save_image(image, image_name, result_path):
+def save_image(image, image_name):
     # 이미지 처리
     img_io = io.BytesIO()
     image.save(img_io, 'JPEG')
@@ -217,13 +217,13 @@ def save_image(image, image_name, result_path):
         s3_key = f"{S3_IMAGE_PATH}/{image_name}"
         s3.upload_fileobj(img_io, S3_BUCKET, s3_key, ExtraArgs={'ContentType': 'image/jpeg'})
         s3_url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{image_name}"
-        return "success"
+        return s3_url
     except NoCredentialsError:
-        return "Credentials not available"
+        return 500
     
     
     
-def main(boxes, labels, image=None, image_name=None, result_path=None):
+def main(boxes, labels, image=None, image_name=None):
     # 시간 측정
     import time
     start = time.time()
@@ -231,12 +231,12 @@ def main(boxes, labels, image=None, image_name=None, result_path=None):
     
     result_boxes, result_labels, result_image = make_spaces_by_lines(boxes, labels, image)
     if image is not None:
-        print(save_image(result_image, image_name, result_path))
+        save = save_image(result_image, image_name)
     brl_lines = labels_to_brl(result_labels)
     
     print("refine json end", time.time() - start)
     
-    return result_boxes, brl_lines
+    return result_boxes, brl_lines, save
 
 if __name__ == '__main__':
     import json
