@@ -1,6 +1,19 @@
 import numpy as np
 from PIL import Image, ImageDraw
 
+import boto3
+from botocore.exceptions import NoCredentialsError
+import os
+import io
+
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = 'ap-northeast-2'
+S3_BUCKET = os.getenv('BUCKET_NAME')
+S3_IMAGE_PATH = os.getenv('IMAGE_PATH')
+
+s3 = boto3.client('s3', region_name=AWS_REGION, aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
+
 def calc_avg_margin(box_lines):
     # 박스간 간격 계산
     dist_list = []
@@ -53,12 +66,11 @@ def make_new_boxes(spaces, pre_box, slope, avg_width):
         ])
     return new_boxes
 
-def make_spaces_by_lines(box_lines, label_lines, image_path):
+def make_spaces_by_lines(box_lines, label_lines, image):
     avg_box_x = calc_avg_box_x(box_lines)
     avg_margin = calc_avg_margin(box_lines)
     avg_width = avg_box_x + avg_margin
     
-    image = Image.open(image_path)
     draw = ImageDraw.Draw(image)
     
     # 공백 찾기
@@ -91,8 +103,9 @@ def make_spaces_by_lines(box_lines, label_lines, image_path):
         refined_box_lines.append(refined_box_line)
         refined_label_lines.append(refined_label_line)
         
-    image.save(image_path)
-    return refined_box_lines, refined_label_lines
+    # image.save()
+    
+    return make_black_spaces_by_lines(refined_box_lines, refined_label_lines, image)
 
 def get_outline(box_lines):
     # 전체 라인의 가장 왼쪽, 가장 위, 가장 오른쪽, 가장 아래 좌표를 구함
@@ -135,15 +148,14 @@ def make_new_black_boxes_left(spaces, left_box, slope, avg_width):
     new_boxes.reverse()
     return new_boxes
 
-def make_black_spaces_by_lines(box_lines, label_lines, image_path):
+def make_black_spaces_by_lines(box_lines, label_lines, image=None):
     avg_box_x = calc_avg_box_x(box_lines)
     avg_margin = calc_avg_margin(box_lines)
     avg_width = avg_box_x + avg_margin
     outline = get_outline(box_lines)
-    draw_outline(image_path, outline)
     
-    image = Image.open(image_path)
     draw = ImageDraw.Draw(image)
+    draw.rectangle(outline, outline='black')
     
     black_box_lines = []
     black_label_lines = []
@@ -179,9 +191,9 @@ def make_black_spaces_by_lines(box_lines, label_lines, image_path):
         black_box_lines.append(black_box_line)
         black_label_lines.append(black_label_line)            
     
-    image.save(image_path)
+    # image.save(image_path)
     
-    return black_box_lines, black_label_lines
+    return black_box_lines, black_label_lines, image
     
 
 def labels_to_brl(label_lines):
@@ -192,27 +204,39 @@ def labels_to_brl(label_lines):
             brl += chr(label + 0x2800)
         brl_lines.append(brl)
     return brl_lines
+
+
+def save_image(image, image_name, result_path):
+    # 이미지 처리
+    img_io = io.BytesIO()
+    image.save(img_io, 'JPEG')
+    img_io.seek(0)
+    
+    # S3에 업로드
+    try:
+        s3_key = f"{S3_IMAGE_PATH}/{image_name}"
+        s3.upload_fileobj(img_io, S3_BUCKET, s3_key, ExtraArgs={'ContentType': 'image/jpeg'})
+        s3_url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{image_name}"
+        return "success"
+    except NoCredentialsError:
+        return "Credentials not available"
     
     
-def main(json_result, boxes, labels):
+    
+def main(boxes, labels, image=None, image_name=None, result_path=None):
     # 시간 측정
     import time
     start = time.time()
     print("refine json start", start)
     
-    image_path = json_result['image_path']
-    refined_boxes, refined_labels = make_spaces_by_lines(boxes, labels, image_path)
-    result_boxes, result_labels = make_black_spaces_by_lines(refined_boxes, refined_labels, image_path)
+    result_boxes, result_labels, result_image = make_spaces_by_lines(boxes, labels, image)
+    if image is not None:
+        print(save_image(result_image, image_name, result_path))
     brl_lines = labels_to_brl(result_labels)
-    
-    json_result['prediction']['boxes'] = result_boxes
-    json_result['prediction']['labels'] = result_labels
-    json_result['prediction']['brl'] = brl_lines
-    
     
     print("refine json end", time.time() - start)
     
-    return json_result
+    return result_boxes, brl_lines
 
 if __name__ == '__main__':
     import json

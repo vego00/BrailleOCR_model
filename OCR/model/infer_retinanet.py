@@ -9,7 +9,7 @@ import os
 import json
 import glob
 import sys
-import L1_OCR.local_config as local_config
+import OCR.local_config as local_config
 sys.path.append(local_config.global_3rd_party)
 from os.path import join
 from ovotools.params import AttrDict
@@ -34,7 +34,7 @@ import braille_utils.postprocess as postprocess
 import model.refine_json as refine_json
 import model.test as test
 
-import uuid
+# import uuid
 import datetime
 import pytz
 import csv
@@ -219,11 +219,11 @@ class BrailleInference:
                     print("Model pth loaded")
         self.impl.to(device)
         
-        self.uuid_int = uuid.uuid1().int
+        # self.uuid_int = uuid.uuid1().int
         self.result = None
         
-    def get_uuid(self):
-        return self.uuid_int
+    # def get_uuid(self):
+    #     return self.uuid_int
     
     def get_result(self):
         return self.result
@@ -373,7 +373,7 @@ class BrailleInference:
                }
         return res
 
-    def save_results(self, result_dict, reverse_page, results_dir, filename_stem, save_development_info, img_path):
+    def save_results(self, result_dict, reverse_page, results_dir, image, image_name):
         suff = ".rev" if reverse_page else ""
         
         data_dir = Path(results_dir) / "data"
@@ -391,13 +391,8 @@ class BrailleInference:
         # uuid_str = str(self.uuid_int)
         # marked_image_path = img_dir / (uuid_str + ".jpg")
         # json_path = json_dir / (uuid_str + ".json")
-        print("img_path: ", img_path)
-        try:
-            img_name = Path(img_path).name
-        except:
-            img_name = Path(img_path.filename).name
-        marked_image_path = img_dir / img_name
-        json_path = json_dir / img_name.replace(".jpg", ".json")
+        marked_image_path = img_dir / image_name
+        json_path = json_dir / image_name.replace(".jpg", ".json")
         
         # 이미지 저장
         result_dict["labeled_image" + suff].save(marked_image_path)
@@ -411,39 +406,42 @@ class BrailleInference:
             labels.append([ch.label for ch in line.chars])
         
         # 한국 시간대 설정
-        kst = pytz.timezone('Asia/Seoul')
+        # kst = pytz.timezone('Asia/Seoul')
         
         # 현재 한국 시간 가져오기
-        current_time_kst = datetime.datetime.now(kst)
-        print("Height: ", result_dict["dict" + suff]["imageHeight"])
-        json_result = {
-            "id": self.uuid_int,
-            "image_path": str(marked_image_path),
-            "date": current_time_kst.strftime("%Y-%m-%d %H:%M:%S"),
-            "imageWidth": result_dict["dict" + suff]["imageWidth"],
-            "imageHeight": result_dict["dict" + suff]["imageHeight"],
-            "prediction": {
-                "boxes": None,
-                "labels": None,
-                "brl": None,
-                "text": None
-            },
-            "correction": {
-                "boxes": None,
-                "labels": None,
-                "brl": None,
-                "text": None
-            },
-        }
+        # current_time_kst = datetime.datetime.now(kst)
         
-        json_result = refine_json.main(json_result, boxes, labels)
+        # print("Height: ", result_dict["dict" + suff]["imageHeight"])
+        
+        # json_result = {
+            # "id": self.uuid_int,
+            # "image_path": str(marked_image_path),
+            # "date": current_time_kst.strftime("%Y-%m-%d %H:%M:%S"),
+            # "imageWidth": result_dict["dict" + suff]["imageWidth"],
+            # "imageHeight": result_dict["dict" + suff]["imageHeight"],
+            # "prediction": {
+            #     "boxes": None,
+            #     "labels": None,
+            #     "brl": None,
+            #     "text": None
+            # },
+            # "correction": {
+            #     "boxes": None,
+            #     "labels": None,
+            #     "brl": None,
+            #     "text": None
+            # },
+        # }
+        
+        # json_result = refine_json.main(json_result, boxes, labels)
+        json_result = refine_json.main(boxes, labels, image)
         
         with open(json_path, "w", encoding='utf-8') as f:
             json.dump(json_result, f, indent=4, ensure_ascii=False)
         
         return json_result
     
-    def run_and_save(self, img_path, results_dir, target_stem, lang, extra_info, draw_refined,
+    def run_and_save(self, image_file, results_dir, target_stem, lang, extra_info, draw_refined,
                      remove_labeled_from_filename, find_orientation, align_results, process_2_sides, repeat_on_aligned,
                      save_development_info=True):
         """
@@ -452,9 +450,10 @@ class BrailleInference:
             img is image, not filename. When target_stem is None, it is taken from img stem.
         """
         t = timeit.default_timer()
-        img = PIL.Image.open(img_path)
+        image = PIL.Image.open(image_file)
+        image_name = image_file.filename
         
-        result_dict = self.run(img, lang=lang, draw_refined=draw_refined,
+        result_dict = self.run(image, lang=lang, draw_refined=draw_refined,
                                find_orientation=find_orientation,
                                process_2_sides=process_2_sides, align_results=align_results, repeat_on_aligned=repeat_on_aligned)
         if result_dict is None:
@@ -462,7 +461,7 @@ class BrailleInference:
 
         os.makedirs(results_dir, exist_ok=True)
         
-        self.result = self.save_results(result_dict, False, results_dir, target_stem, save_development_info, img_path)
+        self.result = self.save_results(result_dict, False, results_dir, image, image_name)
         
         return self.result
 
