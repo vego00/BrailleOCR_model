@@ -22,6 +22,7 @@ from pathlib import Path
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
+import PIL.ImageOps
 from pathlib import Path
 import zipfile
 import data_utils.data as data
@@ -388,6 +389,7 @@ class BrailleInference:
         """
         t = timeit.default_timer()
         image = PIL.Image.open(image_file)
+        image = PIL.ImageOps.exif_transpose(image)
         image_name = image_file.filename
         
         # Set find_orientation to False as we are not handling rotations
@@ -455,6 +457,7 @@ class BrailleInference:
                         continue
                     try:
                         img = PIL.Image.open(file)
+                        img = PIL.ImageOps.exif_transpose(img)
                     except:
                         print('Error processing file: ' + str(entry.filename) + ' in ' + str(arch_path))
                         continue
