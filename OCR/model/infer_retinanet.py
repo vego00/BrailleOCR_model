@@ -376,26 +376,27 @@ class BrailleInference:
     def save_results(self, result_dict, reverse_page, image, image_name):
         # suff = ".rev" if reverse_page else ""
         
-        # data_dir = Path(results_dir) / "data"
+        results_dir = local_config.data_path
+        data_dir = Path(results_dir) / "data"
         
         # 각 디렉토리 경로 설정
-        # img_dir = Path(data_dir) / "images"
-        # json_dir = Path(data_dir) / "annotations"
+        img_dir = Path(data_dir) / "images"
+        json_dir = Path(data_dir) / "annotations"
         
         # 디렉토리가 존재하지 않으면 생성
-        # data_dir.mkdir(parents=True, exist_ok=True)
-        # img_dir.mkdir(parents=True, exist_ok=True)
-        # json_dir.mkdir(parents=True, exist_ok=True)
+        data_dir.mkdir(parents=True, exist_ok=True)
+        img_dir.mkdir(parents=True, exist_ok=True)
+        json_dir.mkdir(parents=True, exist_ok=True)
         
         # 경로 설정
         # uuid_str = str(self.uuid_int)
         # marked_image_path = img_dir / (uuid_str + ".jpg")
         # json_path = json_dir / (uuid_str + ".json")
-        # marked_image_path = img_dir / image_name
-        # json_path = json_dir / image_name.replace(".jpg", ".json")
+        marked_image_path = img_dir / image_name
+        json_path = json_dir / image_name.replace(".jpg", ".json")
         
         # 이미지 저장
-        # result_dict["labeled_image" + suff].save(marked_image_path)
+        # result_dict["labeled_image"].save(marked_image_path)
         
         # JSON 파일 저장
         boxes = []
@@ -435,7 +436,18 @@ class BrailleInference:
         
         # json_result = refine_json.main(json_result, boxes, labels)
         # json_result = refine_json.main(boxes, labels, image)
-        return refine_json.main(boxes, labels, image, image_name)
+    
+        # refined_boxes, refined_brls, save = refine_json.main(boxes, labels, image, image_name, marked_image_path)
+        refined_boxes, refine_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
+        json_result = {
+            "boxes": refined_boxes,
+            "labels": refine_labels,
+            "brl": refined_brls,
+            "save": save
+        }
+        with open(json_path, "w", encoding='utf-8') as f:
+            json.dump(json_result, f, indent=4, ensure_ascii=False)
+        return refined_boxes, refined_brls, save
         
         # with open(json_path, "w", encoding='utf-8') as f:
         #     json.dump(json_result, f, indent=4, ensure_ascii=False)
@@ -488,16 +500,18 @@ class BrailleInference:
         result_list = list()
         for img_file, img_folder in zip(img_files, img_folders):
             print('processing '+str(img_file))
-            ith_result = self.run_and_save(
-                img_file, os.path.join(results_dir, img_folder), target_stem=None,
-                lang=lang, extra_info=extra_info,
-                draw_refined=draw_refined,
-			    remove_labeled_from_filename=remove_labeled_from_filename,
-                find_orientation=find_orientation,
-                process_2_sides=process_2_sides,
-                align_results=align_results,
-                repeat_on_aligned=repeat_on_aligned,
-                save_development_info=save_development_info)
+            with open(img_file, 'rb') as img_f:
+                img_f.filename = os.path.basename(img_file)
+                ith_result = self.run_and_save(
+                    img_f, os.path.join(results_dir, img_folder), target_stem=None,
+                    lang=lang, extra_info=extra_info,
+                    draw_refined=draw_refined,
+                    remove_labeled_from_filename=remove_labeled_from_filename,
+                    find_orientation=find_orientation,
+                    process_2_sides=process_2_sides,
+                    align_results=align_results,
+                    repeat_on_aligned=repeat_on_aligned,
+                    save_development_info=save_development_info)
             if ith_result is None:
                 print('Error processing file: '+ str(img_file))
                 continue

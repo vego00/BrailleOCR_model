@@ -66,7 +66,7 @@ def make_new_boxes(spaces, pre_box, slope, avg_width):
         ])
     return new_boxes
 
-def make_spaces_by_lines(box_lines, label_lines, image):
+def make_spaces_by_lines(box_lines, label_lines, image, marked_image_path):
     avg_box_x = calc_avg_box_x(box_lines)
     avg_margin = calc_avg_margin(box_lines)
     avg_width = avg_box_x + avg_margin
@@ -105,7 +105,7 @@ def make_spaces_by_lines(box_lines, label_lines, image):
         
     # image.save()
     
-    return make_black_spaces_by_lines(refined_box_lines, refined_label_lines, image)
+    return make_black_spaces_by_lines(refined_box_lines, refined_label_lines, image, marked_image_path)
 
 def get_outline(box_lines):
     # 전체 라인의 가장 왼쪽, 가장 위, 가장 오른쪽, 가장 아래 좌표를 구함
@@ -148,7 +148,7 @@ def make_new_black_boxes_left(spaces, left_box, slope, avg_width):
     new_boxes.reverse()
     return new_boxes
 
-def make_black_spaces_by_lines(box_lines, label_lines, image=None):
+def make_black_spaces_by_lines(box_lines, label_lines, image=None, marked_image_path=None):
     avg_box_x = calc_avg_box_x(box_lines)
     avg_margin = calc_avg_margin(box_lines)
     avg_width = avg_box_x + avg_margin
@@ -191,7 +191,7 @@ def make_black_spaces_by_lines(box_lines, label_lines, image=None):
         black_box_lines.append(black_box_line)
         black_label_lines.append(black_label_line)            
     
-    # image.save(image_path)
+    image.save(marked_image_path)
     
     return black_box_lines, black_label_lines, image
     
@@ -206,7 +206,8 @@ def labels_to_brl(label_lines):
     return brl_lines
 
 
-def save_image(image, image_name):
+def save_image(image, image_name, marked_image_path):
+    return 200
     # 이미지 처리
     img_io = io.BytesIO()
     image.save(img_io, 'JPEG')
@@ -218,25 +219,25 @@ def save_image(image, image_name):
         s3.upload_fileobj(img_io, S3_BUCKET, s3_key, ExtraArgs={'ContentType': 'image/jpeg'})
         s3_url = f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{image_name}"
         return s3_url
-    except NoCredentialsError:
+    except TypeError as e:
         return 500
     
     
     
-def main(boxes, labels, image=None, image_name=None):
+def main(boxes, labels, image=None, image_name=None, marked_image_path=None):
     # 시간 측정
     import time
     start = time.time()
     print("refine json start", start)
     
-    result_boxes, result_labels, result_image = make_spaces_by_lines(boxes, labels, image)
+    result_boxes, result_labels, result_image = make_spaces_by_lines(boxes, labels, image, marked_image_path)
     if image is not None:
-        save = save_image(result_image, image_name)
+        save = save_image(result_image, image_name, marked_image_path)
     brl_lines = labels_to_brl(result_labels)
     
     print("refine json end", time.time() - start)
     
-    return result_boxes, brl_lines, save
+    return result_boxes, result_labels, brl_lines, save
 
 if __name__ == '__main__':
     import json
