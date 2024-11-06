@@ -51,17 +51,6 @@ nms_thresh = 0.02
 REFINE_COEFFS = [0.083, 0.092, -0.083, -0.013]  # Коэффициенты (в единицах h символа) для эмпирической коррекции
                         # получившихся размеров, чтобы исправить неточность результатов для последующей разметки
 
-class OrientationAttempts(enum.IntEnum):
-    NONE = 0
-    ROT180 = 1
-    INV = 2
-    INV_ROT180 = 3
-    ROT90 = 4
-    ROT270 = 5
-    INV_ROT90 = 6
-    INV_ROT270 = 7
-
-
 class BraileInferenceImpl(torch.nn.Module):
     def __init__(self, params, model, device, label_is_valid, verbose=0):
         super(BraileInferenceImpl, self).__init__()
@@ -74,7 +63,7 @@ class BraileInferenceImpl(torch.nn.Module):
             self.model_weights_fn = model
             self.model, _, _ = create_model_retinanet.create_model_retinanet(params, device=device)
             self.model = self.model.to(device)
-            self.model.load_state_dict(torch.load(self.model_weights_fn, map_location = 'cpu'))
+            self.model.load_state_dict(torch.load(self.model_weights_fn, map_location='cpu'))
         self.model.eval()
         #self.model = torch.jit.script(self.model)
 
@@ -85,84 +74,28 @@ class BraileInferenceImpl(torch.nn.Module):
         self.nms_thresh = nms_thresh
         self.num_classes = [] if not params.data.get('class_as_6pt', False) else [1]*6
 
-    def calc_letter_statistics(self, cls_preds, cls_thresh, orientation_attempts):
-        # type: (List[Tensor], float)->Tuple[int, Tuple[Tensor, Tensor, Tensor]]
-        device = cls_preds[min(orientation_attempts)].device
-        stats = [torch.zeros((1, 64,), device=device)]*8
-        for i, cls_pred in enumerate(cls_preds):
-            if i in orientation_attempts:
-                scores = cls_pred.sigmoid()
-                scores[scores<cls_thresh] = torch.tensor(0.).to(scores.device)
-                stat = scores.sum(1)
-                assert list(stat.shape) == [1, 64]
-                stats[i] = stat
-        stat = torch.cat(stats, dim=0)
-        valid_mask = self.valid_mask.to(stat.device)
-        sum_valid = (stat*valid_mask).sum(1)
-        sum_invalid = (stat*(1-valid_mask)).sum(1)
-        err_score = (sum_invalid+1)/(sum_valid+1)
-        best_idx = torch.argmin(err_score/(sum_valid+1)) # эвристика так себе придуманная
-        return best_idx.item(), (err_score, sum_valid, sum_invalid)
-
-    def forward(self, input_tensor, input_tensor_rotated, find_orientation, process_2_sides):
-        # type: (Tensor, Tensor, int)->Tuple[Tensor,Tensor,Tensor,int, Tuple[Tensor, Tensor, Tensor]]
+    def forward(self, input_tensor, find_orientation, process_2_sides):
+        # type: (Tensor, int)->Tuple[Tensor,Tensor,Tensor,int, Tuple[Tensor, Tensor, Tensor]]
         t = timeit.default_timer()
-        orientation_attempts = [OrientationAttempts.NONE]
-        if find_orientation:
-            orientation_attempts += [OrientationAttempts.ROT180, OrientationAttempts.ROT90, OrientationAttempts.ROT270]
-        if process_2_sides:
-            orientation_attempts += [OrientationAttempts.INV]
-            if find_orientation:
-                orientation_attempts += [OrientationAttempts.INV_ROT180, OrientationAttempts.INV_ROT90, OrientationAttempts.INV_ROT270]
-        if len(self.num_classes) > 1:
-            assert not find_orientation and not process_2_sides
-        input_data = [None]*8
-        input_data[OrientationAttempts.NONE]= input_tensor.unsqueeze(0)
-        if find_orientation:
-            input_data[OrientationAttempts.ROT180] = torch.flip(input_data[OrientationAttempts.NONE], [2,3])
-            input_data[OrientationAttempts.ROT90] = input_tensor_rotated.unsqueeze(0)
-            input_data[OrientationAttempts.ROT270] = torch.flip(input_data[OrientationAttempts.ROT90], [2, 3])
-        if process_2_sides:
-            input_data[OrientationAttempts.INV] = torch.flip(-input_data[OrientationAttempts.NONE], [3])
-            if find_orientation:
-                input_data[OrientationAttempts.INV_ROT180] = torch.flip(-input_data[OrientationAttempts.ROT180], [3])
-                input_data[OrientationAttempts.INV_ROT90] = torch.flip(-input_data[OrientationAttempts.ROT90], [3])
-                input_data[OrientationAttempts.INV_ROT270] = torch.flip(-input_data[OrientationAttempts.ROT270], [3])
-        loc_preds: List[Tensor] = [torch.tensor(0)]*8
-        cls_preds: List[Tensor] = [torch.tensor(0)]*8
-        if self.verbose >= 2:
-            print("        forward.prepare", timeit.default_timer() - t)
-            t = timeit.default_timer()
-        for i, input_data_i in enumerate(input_data):
-            if i in orientation_attempts:
-                loc_pred, cls_pred = self.model(input_data_i)
-                loc_preds[i] = loc_pred
-                cls_preds[i] = cls_pred
-        if self.verbose >= 2:
-            print("        forward.model", timeit.default_timer() - t)
-            t = timeit.default_timer()
-        if find_orientation:
-            best_idx, err_score = self.calc_letter_statistics(cls_preds, self.cls_thresh, orientation_attempts)
-        else:
-            best_idx, err_score = OrientationAttempts.NONE, (torch.tensor([0.]),torch.tensor([0.]),torch.tensor([0.]))
-        if self.verbose >= 2 and self.device != 'cpu':
-            torch.cuda.synchronize(self.device)
+        # Only process the original image without any rotation
+        input_data = input_tensor.unsqueeze(0)
 
-        if best_idx in [OrientationAttempts.INV, OrientationAttempts.INV_ROT180, OrientationAttempts.INV_ROT90, OrientationAttempts.INV_ROT270]:
-            best_idx -= 2
-        if self.verbose >= 2:
-            print("        forward.calc_letter_statistics", timeit.default_timer() - t)
-            t = timeit.default_timer()
-        h,w = input_data[best_idx].shape[2:]
-        boxes, labels, scores = self.encoder.decode(loc_preds[best_idx][0].cpu().data,
-                                                    cls_preds[best_idx][0].cpu().data, (w,h),
-                                                    cls_thresh = self.cls_thresh, nms_thresh = self.nms_thresh,
+        loc_pred, cls_pred = self.model(input_data)
+        
+        # Since we are not rotating, best_idx is always NONE
+        best_idx = 0
+        err_score = (torch.tensor([0.]), torch.tensor([0.]), torch.tensor([0.]))
+
+        h, w = input_data.shape[2:]
+        boxes, labels, scores = self.encoder.decode(loc_pred[0].cpu().data,
+                                                    cls_pred[0].cpu().data, (w, h),
+                                                    cls_thresh=self.cls_thresh, nms_thresh=self.nms_thresh,
                                                     num_classes=self.num_classes)
         if len(self.num_classes) > 1:
             labels = torch.tensor([lt.label010_to_int([str(s.item()+1) for s in lbl101]) for lbl101 in labels])
         if process_2_sides:
-            boxes2, labels2, scores2 = self.encoder.decode(loc_preds[best_idx+2][0].cpu().data,
-                                                           cls_preds[best_idx+2][0].cpu().data, (w, h),
+            boxes2, labels2, scores2 = self.encoder.decode(loc_pred[0].cpu().data,
+                                                           cls_pred[0].cpu().data, (w, h),
                                                            cls_thresh=self.cls_thresh, nms_thresh=self.nms_thresh,
                                                            num_classes=self.num_classes)
         else:
@@ -181,22 +114,22 @@ class BrailleInference:
     DRAW_BOTH = DRAW_ORIGINAL | DRAW_REFINED  # 3
     DRAW_FULL_CHARS = 4
 
-    def __init__(self, params_fn=params_fn, model_weights_fn=model_weights_fn, create_script = None,
+    def __init__(self, params_fn=params_fn, model_weights_fn=model_weights_fn, create_script=None,
                  verbose=1, inference_width=inference_width, device=device):
         self.verbose = verbose
         if not torch.cuda.is_available() and device != 'cpu':
-            print('CUDA not availabel. CPU is used')
+            print('CUDA not available. CPU is used')
             device = 'cpu'
 
         params = AttrDict.load(params_fn, verbose=verbose)
-        params.data.net_hw = (inference_width,inference_width,) #(512,768) ###### (1024,1536) #
+        params.data.net_hw = (inference_width, inference_width,)  # (512,768) ###### (1024,1536) #
         params.data.batch_size = 1 #######
         params.augmentation = AttrDict(
             img_width_range=(inference_width, inference_width),
-            stretch_limit = 0.0,
-            rotate_limit=0,
+            stretch_limit=0.0,
+            rotate_limit=0,  # Ensure no rotation during augmentation
         )
-        self.preprocessor = data.ImagePreprocessor(params, mode = 'inference')
+        self.preprocessor = data.ImagePreprocessor(params, mode='inference')
 
         if isinstance(model_weights_fn, torch.nn.Module):
             self.impl = BraileInferenceImpl(params, model_weights_fn, device, lt.label_is_valid, verbose=verbose)
@@ -257,7 +190,7 @@ class BrailleInference:
                                         process_2_sides=process_2_sides, align=align_results, draw=True, gt_rects=gt_rects)
         return results_dict
 
-		
+    	
     def refine_lines(self, lines):
         """
         GVNC. Эмпирическая коррекция получившихся размеров чтобы исправить неточность результатов для последующей разметки
@@ -280,30 +213,20 @@ class BrailleInference:
         aug_img, aug_gt_rects = self.preprocessor.preprocess_and_augment(np_img, gt_rects)
         aug_img = data.unify_shape(aug_img)
         input_tensor = self.preprocessor.to_normalized_tensor(aug_img, device=self.impl.device)
-        input_tensor_rotated = torch.tensor(0).to(self.impl.device)
-        
-        aug_img_rot = None
-        if find_orientation:
-            np_img_rot = np.rot90(np_img, 1, (0,1))
-            aug_img_rot = self.preprocessor.preprocess_and_augment(np_img_rot)[0]
-            aug_img_rot = data.unify_shape(aug_img_rot)
-            input_tensor_rotated = self.preprocessor.to_normalized_tensor(aug_img_rot, device=self.impl.device)
         
         with torch.no_grad():
             boxes, labels, scores, best_idx, err_score, boxes2, labels2, scores2 = self.impl(
-                input_tensor, input_tensor_rotated, find_orientation=find_orientation, process_2_sides=process_2_sides)
+                input_tensor, find_orientation=False, process_2_sides=process_2_sides)
         
-        #boxes = self.refine_boxes(boxes)
         boxes = boxes.tolist()
         labels = labels.tolist()
         scores = scores.tolist()
-        lines = postprocess.boxes_to_lines(boxes, labels, lang = lang)
+        lines = postprocess.boxes_to_lines(boxes, labels, lang=lang)
         self.refine_lines(lines)
 
-        aug_img = PIL.Image.fromarray(aug_img if best_idx < OrientationAttempts.ROT90 else aug_img_rot)
-        if best_idx in (OrientationAttempts.ROT180, OrientationAttempts.ROT270):
-            aug_img = aug_img.transpose(PIL.Image.ROTATE_180)
-
+        # 여기에서 aug_img를 PIL.Image로 변환합니다.
+        aug_img = PIL.Image.fromarray(aug_img)
+        
         if align and not process_2_sides:
             hom = postprocess.find_transformation(lines, (aug_img.width, aug_img.height))
             if hom is not None:
@@ -314,10 +237,10 @@ class BrailleInference:
                 aug_gt_rects = postprocess.transform_rects(aug_gt_rects, hom)
         else:
             hom = None
-            
+                    
         results_dict = {
             'image': aug_img,
-            'best_idx': best_idx,
+            'best_idx': 0,  # Always NONE
             'err_scores': list([ten.cpu().data.tolist() for ten in err_score]),
             'gt_rects': aug_gt_rects,
             'homography': hom.tolist() if hom is not None else hom,
@@ -326,6 +249,7 @@ class BrailleInference:
         results_dict.update(self.draw_results(aug_img, boxes, lines, labels, scores, False, draw_refined))
         
         return results_dict
+
 
     def draw_results(self, aug_img, boxes, lines, labels, scores, reverse_page, draw_refined):
         suff = '.rev' if reverse_page else ''
@@ -466,8 +390,9 @@ class BrailleInference:
         image = PIL.Image.open(image_file)
         image_name = image_file.filename
         
+        # Set find_orientation to False as we are not handling rotations
         result_dict = self.run(image, lang=lang, draw_refined=draw_refined,
-                               find_orientation=find_orientation,
+                               find_orientation=False,
                                process_2_sides=process_2_sides, align_results=align_results, repeat_on_aligned=repeat_on_aligned)
         if result_dict is None:
             return None
@@ -507,7 +432,7 @@ class BrailleInference:
                     lang=lang, extra_info=extra_info,
                     draw_refined=draw_refined,
                     remove_labeled_from_filename=remove_labeled_from_filename,
-                    find_orientation=find_orientation,
+                    find_orientation=False,  # Set to False
                     process_2_sides=process_2_sides,
                     align_results=align_results,
                     repeat_on_aligned=repeat_on_aligned,
@@ -538,7 +463,7 @@ class BrailleInference:
                         lang=lang, extra_info=extra_info,
                         draw_refined=draw_refined,
                         remove_labeled_from_filename=remove_labeled_from_filename,
-                        find_orientation=find_orientation,
+                        find_orientation=False,  # Set to False
                         process_2_sides=process_2_sides,
                         align_results=align_results,
                         repeat_on_aligned=repeat_on_aligned,
@@ -563,16 +488,16 @@ if __name__ == '__main__':
 
     lang = 'RU'
     remove_labeled_from_filename = False
-    find_orientation = True
+    find_orientation = False  # Set to False
     process_2_sides = False
     repeat_on_aligned = False
     verbose = 0
-    draw_redined = BrailleInference.DRAW_REFINED
+    draw_refined = BrailleInference.DRAW_REFINED
 
     recognizer = BrailleInference(verbose=verbose)
-    recognizer.process_dir_and_save(img_filename_mask, results_dir, lang=lang, extra_info=None, draw_refined=draw_redined,
+    recognizer.process_dir_and_save(img_filename_mask, results_dir, lang=lang, extra_info=None, draw_refined=draw_refined,
                                     remove_labeled_from_filename=remove_labeled_from_filename,
-                                    find_orientation=find_orientation,
+                                    find_orientation=find_orientation,  # Already set to False
                                     process_2_sides=process_2_sides,
                                     align_results=True,
                                     repeat_on_aligned=repeat_on_aligned)
