@@ -27,13 +27,14 @@ if not Path(args.input).exists():
     print('input file/path does not exist: ' + args.input)
     exit()
 
+print(os.path.join(local_config.data_path, 'weights', 'param.txt'),)
 recognizer = infer_retinanet.BrailleInference(
     params_fn=os.path.join(local_config.data_path, 'weights', 'param.txt'),
     model_weights_fn=os.path.join(local_config.data_path, 'weights', model_weights),
     create_script=None)
 
-uuid_int = recognizer.get_uuid()
-print('UUID: ' + str(uuid_int))
+# uuid_int = recognizer.get_uuid()
+# print('UUID: ' + str(uuid_int))
 
 if Path(args.input).is_dir():
     results_dir = args.results_dir or args.input
@@ -61,15 +62,17 @@ else:
     elif Path(args.input).suffix in ('.jpg', '.jpe', '.jpeg', '.png', '.gif', '.svg', '.bmp'):
         # img = PIL.Image.open(args.input)
         img_path = args.input
-        recognizer.run_and_save(img_path, results_dir, target_stem=None,
-                                               lang=args.lang, extra_info=None,
-                                               draw_refined=recognizer.DRAW_NONE,
-                                               remove_labeled_from_filename=False,
-                                               find_orientation=args.orient,
-                                               align_results=True,
-                                               process_2_sides=args.two,
-                                               repeat_on_aligned=False,
-                                               save_development_info=False)
+        with open(img_path, 'rb') as img_file:
+            img_file.filename = os.path.basename(img_path)
+            recognizer.run_and_save(img_file, results_dir, target_stem=None,
+                                                lang=args.lang, extra_info=None,
+                                                draw_refined=recognizer.DRAW_NONE,
+                                                remove_labeled_from_filename=False,
+                                                find_orientation=args.orient,
+                                                align_results=True,
+                                                process_2_sides=args.two,
+                                                repeat_on_aligned=False,
+                                                save_development_info=False)
     else:
         print('Incorrect file extention: ' + Path(args.input).suffix + ' . Only images, .pdf and .zip files allowed')
         exit()

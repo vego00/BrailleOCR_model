@@ -43,19 +43,29 @@ def common_aug(mode, params):
     :param mode: 'train', 'test', 'inference'
     :param params:
     '''
-    #aug_params = params.get('augm_params', dict())
     augs_list = []
     assert mode  in {'train', 'debug', 'inference'}
     if mode == 'train':
-        augs_list.append(albumentations.PadIfNeeded(min_height=params.data.net_hw[0], min_width=params.data.net_hw[1],
-                                                    border_mode=cv2.BORDER_REPLICATE,
-                                                    always_apply=True))
-        augs_list.append(albumentations.RandomCrop(height=params.data.net_hw[0], width=params.data.net_hw[1], always_apply=True))
-        if params.augmentation.rotate_limit:
-            augs_list.append(T.Rotate(limit=params.augmentation.rotate_limit, border_mode=cv2.BORDER_CONSTANT, always_apply=True))
-        # augs_list.append(T.OpticalDistortion(border_mode=cv2.BORDER_CONSTANT)) - can't handle boundboxes
+        augs_list.append(albumentations.PadIfNeeded(
+            min_height=params.data.net_hw[0],
+            min_width=params.data.net_hw[1],
+            border_mode=cv2.BORDER_REPLICATE,
+            always_apply=True))
+        augs_list.append(albumentations.RandomCrop(
+            height=params.data.net_hw[0],
+            width=params.data.net_hw[1],
+            always_apply=True))
+        # 회전 변환을 제거합니다.
+        # if params.augmentation.rotate_limit:
+        #     augs_list.append(T.Rotate(
+        #         limit=params.augmentation.rotate_limit,
+        #         border_mode=cv2.BORDER_CONSTANT,
+        #         always_apply=True))
     elif mode == 'debug':
-        augs_list.append(albumentations.CenterCrop(height=params.data.net_hw[0], width=params.data.net_hw[1], always_apply=True))
+        augs_list.append(albumentations.CenterCrop(
+            height=params.data.net_hw[0],
+            width=params.data.net_hw[1],
+            always_apply=True))
     if mode != 'inference':
         if params.augmentation.get('blur_limit', 4):
             augs_list.append(T.Blur(blur_limit=params.augmentation.get('blur_limit', 4)))

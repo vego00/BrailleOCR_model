@@ -1,0 +1,72 @@
+{
+    "definitions": {},
+    "info": {
+        "description": "powered by Flasgger",
+        "termsOfService": "/tos",
+        "title": "A swagger API",
+        "version": "0.0.1"
+    },
+    "paths": {
+        "/ocr": {
+            "post": {
+                "parameters": [
+                    {
+                        "description": "이미지 파일",
+                        "in": "formData",
+                        "name": "image",
+                        "required": true,
+                        "type": "file"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "성공",
+                        "schema": {
+                            "properties": {
+                                "boxes": {
+                                    "items": {
+                                        "items": {
+                                            "type": "number"
+                                        },
+                                        "type": "array"
+                                    },
+                                    "type": "array"
+                                },
+                                "brl": {
+                                    "items": {
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "type": "array"
+                                    },
+                                    "type": "array"
+                                },
+                                "image_url": {
+                                    "description": "이미지 S3 URL",
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "서버 오류",
+                        "schema": {
+                            "properties": {
+                                "error": {
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                },
+                "summary": "OCR API",
+                "tags": [
+                    "OCR"
+                ]
+            }
+        }
+    },
+    "swagger": "2.0"
+}
