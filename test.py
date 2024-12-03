@@ -1,11 +1,9 @@
-import json
+import requests
 
-with open("test.json", "r") as f:
-    json_result = json.load(f)
-    
-brl_cnt = 0
-for line in json_result['prediction']['labels']:
-    for l in line:
-        if l != 0:
-            brl_cnt += 1
-print(brl_cnt)
+url = 'http://3.38.213.235/ocr'
+files = {'image': open('data/서울사랑/서울사랑01.jpg', 'rb')}
+
+response = requests.post(url, files=files)
+
+print(response.status_code)
+print(response.json())
