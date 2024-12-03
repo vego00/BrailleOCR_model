@@ -1,8 +1,6 @@
 import numpy as np
 from PIL import Image, ImageDraw
 
-import boto3
-from botocore.exceptions import NoCredentialsError
 import os
 import io
 
@@ -11,8 +9,6 @@ AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = 'ap-northeast-2'
 S3_BUCKET = os.getenv('BUCKET_NAME')
 S3_IMAGE_PATH = os.getenv('IMAGE_PATH')
-
-s3 = boto3.client('s3', region_name=AWS_REGION, aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
 
 def calc_avg_margin(box_lines):
     # 박스간 간격 계산
