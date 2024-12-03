@@ -121,8 +121,8 @@ class ImagePreprocessor:
         new_width = ((new_width+31)//32)*32
         new_height = int(img.shape[0]*stretch*new_sz/img_max_sz)
         new_height = ((new_height+31)//32)*32
-        new_size = (new_height, new_width)
-        return albu_f.resize(img, new_size, interpolation=cv2.INTER_LINEAR)
+        # new_size = (new_height, new_width)
+        return albu_f.resize(img, new_height, new_width, interpolation=cv2.INTER_LINEAR)
 
     def to_normalized_tensor(self, img, device='cpu'):
         '''

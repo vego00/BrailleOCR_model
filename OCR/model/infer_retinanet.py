@@ -35,11 +35,6 @@ import braille_utils.postprocess as postprocess
 import model.refine_json as refine_json
 import model.test as test
 
-# import uuid
-import datetime
-import pytz
-import csv
-
 VALID_IMAGE_EXTENTIONS = tuple('.jpg,.jpe,.jpeg,.png,.gif,.svg,.bmp,.tiff,.tif,.jfif'.split(','))
 inference_width = 1024
 model_weights = 'model.t7'
@@ -364,7 +359,7 @@ class BrailleInference:
             # },
         # }
         
-        # refined_boxes, refine_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
+        # refined_boxes, refined_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
         refined_boxes, refined_labels, refined_brls, save = boxes, labels, [], 200
         for label in refined_labels:
             brl = []
