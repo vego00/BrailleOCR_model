@@ -7,8 +7,8 @@ cd /home/ubuntu/app
 echo "Ownership and permissions of /home/ubuntu/app before creating venv:"
 ls -ld /home/ubuntu/app
 
-echo "Creating virtual environment..."
-python3 -m venv venv
+echo "Creating virtual environment with Python 3.8..."
+python3.8 -m venv venv
 
 echo "Activating virtual environment..."
 source venv/bin/activate
