@@ -256,9 +256,14 @@ class BrailleInference:
         suff = '.rev' if reverse_page else ''
         aug_img = copy.deepcopy(aug_img)
         draw = PIL.ImageDraw.Draw(aug_img)
+        
+        font_path = 'OCR/model/DejaVuSerif.ttf'
+        font = PIL.ImageFont.truetype(font_path, 24)
+        
         for ln in lines:
             for ch in ln.chars:
                 draw.rectangle(list(ch.refined_box), outline='green')
+                draw.text((ch.refined_box[0], ch.refined_box[1]), chr(ch.label + 0x2800), fill='black', font=font)
         return {
             'labeled_image' + suff: aug_img,
             'lines' + suff: lines,
@@ -321,7 +326,7 @@ class BrailleInference:
         json_path = json_dir / image_name.replace(".jpg", ".json")
         
         # 이미지 저장
-        # result_dict["labeled_image"].save(marked_image_path)
+        result_dict["labeled_image"].save(marked_image_path)
         
         # JSON 파일 저장
         boxes = []
@@ -359,14 +364,18 @@ class BrailleInference:
             # },
         # }
         
-        # json_result = refine_json.main(json_result, boxes, labels)
-        # json_result = refine_json.main(boxes, labels, image)
-    
-        # refined_boxes, refined_brls, save = refine_json.main(boxes, labels, image, image_name, marked_image_path)
-        refined_boxes, refine_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
+        # refined_boxes, refine_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
+        refined_boxes, refined_labels, refined_brls, save = boxes, labels, [], 200
+        for label in refined_labels:
+            brl = []
+            for ch in label:
+                brl.append(chr(ch + 0x2800))
+            refined_brls.append(brl)
         json_result = {
+            "imageWidth": result_dict["dict"]["imageWidth"],
+            "imageHeight": result_dict["dict"]["imageHeight"],
             "boxes": refined_boxes,
-            "labels": refine_labels,
+            "labels": refined_labels,
             "brl": refined_brls,
             "save": save
         }
