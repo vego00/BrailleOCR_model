@@ -1,21 +1,26 @@
 import OCR.run_ocr_app as run_ocr_app
-from flask import Flask, request, jsonify, Response
+import logging
+from flask import Flask, request, jsonify
 from flasgger import Swagger
-# http://localhost:5000/apidocs/
 
+# Flask 애플리케이션 설정
 app = Flask(__name__)
 swagger = Swagger(app)
 
+# 로깅 설정
+logging.basicConfig(filename='app.log', level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+
 def proccess_OCR(image_file):
-    print("Process: OCR")
-    try:        
+    logging.info("Process: OCR")
+    try:
         boxes, brl_lines, image_url = run_ocr_app.run_ocr(image_file)
         return jsonify({'boxes': boxes, 'brl': brl_lines, 'image_url': image_url}), 200
     except KeyError as e:
-        print('키 오류 발생')
+        logging.error('키 오류 발생', exc_info=True)
         return jsonify({'error': '키 오류 발생'}), 500
     except Exception as e:
-        print('서버 오류 발생')
+        logging.error('서버 오류 발생', exc_info=True)
         return jsonify({'error': '서버 오류 발생'}), 500
 
 @app.route('/ocr', methods=['POST'])

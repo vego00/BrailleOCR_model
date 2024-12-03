@@ -1,14 +1,6 @@
 import numpy as np
-from PIL import Image, ImageDraw
 
-import os
-import io
-
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-AWS_REGION = 'ap-northeast-2'
-S3_BUCKET = os.getenv('BUCKET_NAME')
-S3_IMAGE_PATH = os.getenv('IMAGE_PATH')
+# import io
 
 def calc_avg_margin(box_lines):
     # 박스간 간격 계산
@@ -67,7 +59,7 @@ def make_spaces_by_lines(box_lines, label_lines, image, marked_image_path):
     avg_margin = calc_avg_margin(box_lines)
     avg_width = avg_box_x + avg_margin
     
-    draw = ImageDraw.Draw(image)
+    # draw = ImageDraw.Draw(image)
     
     # 공백 찾기
     refined_box_lines = []
@@ -91,7 +83,7 @@ def make_spaces_by_lines(box_lines, label_lines, image, marked_image_path):
                 for new_box in new_boxes:
                     refined_box_line.append(new_box)
                     refined_label_line.append(0)
-                    draw.rectangle(new_box, outline='blue')
+                    # draw.rectangle(new_box, outline='blue')
             
             refined_box_line.append(cur_box)
             refined_label_line.append(label)    
@@ -118,11 +110,11 @@ def get_outline(box_lines):
     ]
     return outline
 
-def draw_outline(image_path, outline):
-    image = Image.open(image_path)
-    draw = ImageDraw.Draw(image)
-    draw.rectangle(outline, outline='black')
-    image.save(image_path)
+# def draw_outline(image_path, outline):
+#     image = Image.open(image_path)
+#     draw = ImageDraw.Draw(image)
+#     draw.rectangle(outline, outline='black')
+#     image.save(image_path)
 
 def make_new_black_boxes_left(spaces, left_box, slope, avg_width):
     slope = slope * 0
@@ -150,8 +142,8 @@ def make_black_spaces_by_lines(box_lines, label_lines, image=None, marked_image_
     avg_width = avg_box_x + avg_margin
     outline = get_outline(box_lines)
     
-    draw = ImageDraw.Draw(image)
-    draw.rectangle(outline, outline='black')
+    # draw = ImageDraw.Draw(image)
+    # draw.rectangle(outline, outline='black')
     
     black_box_lines = []
     black_label_lines = []
@@ -168,7 +160,7 @@ def make_black_spaces_by_lines(box_lines, label_lines, image=None, marked_image_
                 black_box_line.append(new_box)
                 # black_label_line.append(-1)
                 black_label_line.append(0)
-                draw.rectangle(new_box, outline='black')
+                # draw.rectangle(new_box, outline='black')
 
         for box, label in zip(box_line, label_line):
             black_box_line.append(box)
@@ -182,12 +174,12 @@ def make_black_spaces_by_lines(box_lines, label_lines, image=None, marked_image_
                 black_box_line.append(new_box)
                 # black_label_line.append(-1)
                 black_label_line.append(0)
-                draw.rectangle(new_box, outline='black')
+                # draw.rectangle(new_box, outline='black')
                 
         black_box_lines.append(black_box_line)
         black_label_lines.append(black_label_line)            
     
-    image.save(marked_image_path)
+    # image.save(marked_image_path)
     
     return black_box_lines, black_label_lines, image
     

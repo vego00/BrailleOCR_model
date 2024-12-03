@@ -359,8 +359,8 @@ class BrailleInference:
             # },
         # }
         
-        refined_boxes, refined_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
-        # refined_boxes, refined_labels, refined_brls, save = boxes, labels, [], 200
+        # refined_boxes, refined_labels, refined_brls, save = refine_json.main(boxes, labels, result_dict["labeled_image"], image_name, marked_image_path)
+        refined_boxes, refined_labels, refined_brls, save = boxes, labels, [], 200
         for label in refined_labels:
             brl = []
             for ch in label:
