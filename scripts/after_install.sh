@@ -8,7 +8,7 @@ echo "Ownership and permissions of /home/ubuntu/app before creating venv:"
 ls -ld /home/ubuntu/app
 
 echo "Creating virtual environment with Python 3.8..."
-python3.8 -m venv venv
+python3 -m venv venv  # python3.8 대신 python3 사용
 
 echo "Activating virtual environment..."
 source venv/bin/activate
