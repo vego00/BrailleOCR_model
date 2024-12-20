@@ -18,7 +18,6 @@ from collections import OrderedDict
 import torch
 import timeit
 import copy
-from pathlib import Path
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont

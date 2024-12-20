@@ -1,20 +1,37 @@
 import OCR.run_ocr_app as run_ocr_app
+import OCR.local_config as local_config
+import OCR.model.infer_retinanet as infer_retinanet
 import logging
 from flask import Flask, request, jsonify
 from flasgger import Swagger
+import os
+from pathlib import Path
+import PIL.Image
+import PIL.ImageOps
 
 # Flask 애플리케이션 설정
 app = Flask(__name__)
 swagger = Swagger(app)
 
 # 로깅 설정
-logging.basicConfig(filename='app.log', level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+logging.basicConfig(filename='app.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+logging.getLogger('PIL').setLevel(logging.WARNING)
+
+results_dir = local_config.data_path
+data_dir = Path(results_dir) / "data"
+input_dir = data_dir / "input"
+input_dir.mkdir(parents=True, exist_ok=True)
+
+recognizer = infer_retinanet.BrailleInference(
+        params_fn=os.path.join(local_config.data_path, 'weights', 'param.txt'),
+        model_weights_fn=os.path.join(local_config.data_path, 'weights', 'model.t7'),
+        create_script=None
+    )
 
 def proccess_OCR(image_file):
     logging.info("Process: OCR")
     try:
-        boxes, brl_lines, image_url = run_ocr_app.run_ocr(image_file)
+        boxes, brl_lines, image_url = run_ocr_app.run_ocr(recognizer, image_file)
         return jsonify({'boxes': boxes, 'brl': brl_lines, 'image_url': image_url}), 200
     except KeyError as e:
         logging.error('키 오류 발생', exc_info=True)
@@ -68,4 +85,4 @@ def OCR():
     return proccess_OCR(request.files['image'])
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=8080, debug=False)

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import OCR.local_config as local_config
 import OCR.model.infer_retinanet as infer_retinanet
+import PIL.Image
 
 # try:
 #     aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
@@ -53,13 +54,13 @@ import OCR.model.infer_retinanet as infer_retinanet
 #     create_script=None
 # )
 
-def run_ocr(image_file):
+def run_ocr(recognizer, image_file):
     results_dir = local_config.data_path
-    recognizer = infer_retinanet.BrailleInference(
-        params_fn=os.path.join(local_config.data_path, 'weights', 'param.txt'),
-        model_weights_fn=os.path.join(local_config.data_path, 'weights', 'model.t7'),
-        create_script=None
-    )
+    # recognizer = infer_retinanet.BrailleInference(
+    #     params_fn=os.path.join(local_config.data_path, 'weights', 'param.txt'),
+    #     model_weights_fn=os.path.join(local_config.data_path, 'weights', 'model.t7'),
+    #     create_script=None
+    # )
     return recognizer.run_and_save(image_file, results_dir, target_stem=None,
                                                lang='RU', extra_info=None,
                                                draw_refined=recognizer.DRAW_NONE,
