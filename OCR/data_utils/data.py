@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-'''
-class BrailleDataset: loads indexed dataset from DSBI dataset or LabelMe annotated dataset
-(see https://github.com/IlyaOvodov/labelme labelling tool)
-'''
+
 import os
 import random
 import json
@@ -13,36 +10,20 @@ import albumentations
 import albumentations.augmentations.transforms as T
 import albumentations.augmentations.functional as albu_f
 import torch
-import torchvision.transforms.functional as F
 import cv2
 
-from data_utils import dsbi
 from braille_utils import label_tools as lt
 import local_config
 
 
 def rect_vflip(b):
-    '''
-    Flips symbol box converting label
-    :param b: tuple (left, top, right, bottom, label)
-    :return: converted tuple (left, top, right, bottom, label)
-    '''
     return b[:4] + (lt.label_vflip(b[4]),)
 
 def rect_hflip(b):
-    '''
-    Flips symbol box converting label
-    :param b: tuple (left, top, right, bottom, label)
-    :return: converted tuple (left, top, right, bottom, label)
-    '''
     return b[:4] + (lt.label_hflip(b[4]),)
 
 
 def common_aug(mode, params):
-    '''
-    :param mode: 'train', 'test', 'inference'
-    :param params:
-    '''
     augs_list = []
     assert mode  in {'train', 'debug', 'inference'}
     if mode == 'train':
@@ -55,12 +36,6 @@ def common_aug(mode, params):
             height=params.data.net_hw[0],
             width=params.data.net_hw[1],
             always_apply=True))
-        # 회전 변환을 제거합니다.
-        # if params.augmentation.rotate_limit:
-        #     augs_list.append(T.Rotate(
-        #         limit=params.augmentation.rotate_limit,
-        #         border_mode=cv2.BORDER_CONSTANT,
-        #         always_apply=True))
     elif mode == 'debug':
         augs_list.append(albumentations.CenterCrop(
             height=params.data.net_hw[0],
@@ -71,10 +46,8 @@ def common_aug(mode, params):
             augs_list.append(T.Blur(blur_limit=params.augmentation.get('blur_limit', 4)))
         if params.augmentation.get('RandomBrightnessContrast', True):
             augs_list.append(T.RandomBrightnessContrast())
-        #augs_list.append(T.MotionBlur())
         if params.augmentation.get('JpegCompression', True):
             augs_list.append(T.JpegCompression(quality_lower=30, quality_upper=100))
-        #augs_list.append(T.VerticalFlip())
         if params.augmentation.get('HorizontalFlip', True):
             augs_list.append(T.HorizontalFlip())
 
@@ -82,9 +55,6 @@ def common_aug(mode, params):
 
 
 class ImagePreprocessor:
-    '''
-    Preprocess image and it's annotation
-    '''
     def __init__(self, params, mode):
         assert mode in {'train', 'debug', 'inference'}
         self.params = params
@@ -116,25 +86,19 @@ class ImagePreprocessor:
         new_sz = int(random.uniform(new_width_range[0], new_width_range[1]))
         stretch = random.uniform(stretch_limit[0], stretch_limit[1])
         
-        img_max_sz = img.shape[1] #max(img.shape[0]*stretch, img.shape[1]) #img.shape[1]  # GVNC - now it is resizing to max
+        img_max_sz = img.shape[1]
         new_width = int(img.shape[1]*new_sz/img_max_sz)
         new_width = ((new_width+31)//32)*32
         new_height = int(img.shape[0]*stretch*new_sz/img_max_sz)
         new_height = ((new_height+31)//32)*32
-        # new_size = (new_height, new_width)
         return albu_f.resize(img, new_height, new_width, interpolation=cv2.INTER_LINEAR)
 
     def to_normalized_tensor(self, img, device='cpu'):
-        '''
-        returns image converted to FloatTensor and normalized
-        '''
         assert img.ndim == 3
         ten_img = torch.from_numpy(img.transpose((2, 0, 1))).to(device).float()
         means = ten_img.view(3, -1).mean(dim=1)
         std = torch.max(ten_img.view(3, -1).std(dim=1), torch.tensor(self.params.data.get('max_std',0)*255).to(ten_img))
-                        #(ten_img.view(3, -1).max(dim=1)[0] - ten_img.view(3, -1).min(dim=1)[0])/6)
         ten_img = (ten_img - means.view(-1, 1, 1)) / (3*std.view(-1, 1, 1))
-        # decolorize
         ten_img = ten_img.mean(dim=0).expand(3, -1, -1)
         return ten_img
 
@@ -148,20 +112,7 @@ def unify_shape(img):
 
 
 class BrailleDataset(torch.utils.data.ConcatDataset):
-    '''
-    Indexed assess to annotated images listed in a txt file
-    Returns annotated images as tuple: ( img: Tensor CxHxW,
-        symbols: np.array(Nx5 i.e. Nx(left, top, right, bottom [0..1), class [1..63]))
-        If get_points mode is on, class is always 0
-    '''
     def __init__(self, params, list_file_names, mode, verbose):
-        '''
-        :param params:  params dict
-        :param list_file_names: list of files with image files list (relative to local_config.data_path)
-            each file should contain list of image file paths relative to that list file location
-        :param mode: augmentation and output mode ('train', 'debug', 'inference')
-        :param verbose: if != 0 enables debug print
-        '''
         sub_datasets = []
         for list_file_name in list_file_names:
             if isinstance(list_file_name, (tuple, list)):
@@ -180,22 +131,8 @@ class BrailleDataset(torch.utils.data.ConcatDataset):
         super(BrailleDataset, self).__init__(sub_datasets)
 
 class BrailleSubDataset:
-    '''
-    Provides subset of data for BrailleSubDataset defined by one list file
-    '''
 
     def __init__(self, params, list_file_name, mode, verbose, sample_weight, list_params):
-        '''
-        :param params:  params dict
-        :param list_file_names: list of files with image files list (relative to local_config.data_path)
-            each file should contain list of image file paths relative to that list file location
-        :param mode: augmentation and output mode ('train', 'debug', 'inference')
-        :param verbose: if != 0 enables debug print
-        :param sample_weight: при значениях больше двух - датасет повторяется. При дробных значениях - уменьшается
-         видимы размер датасета за счето того, что при запросе одного индекса выдатся последовательно разные элементы.
-         дробная часть долна быть кратна 1/n
-        :param list_params: опиональный параметр - dict, 3-й при в списке в m param. Выдается в батч ввместе с данными об item.
-        '''
         assert mode in {'train', 'debug', 'inference'}
         self.params = params
         self.mode = mode
@@ -276,12 +213,6 @@ class BrailleSubDataset:
             return self.image_preprocessor.to_normalized_tensor(aug_img), np.asarray(aug_bboxes).reshape(-1, 5), self.list_params, aug_img
 
     def filenames_of_item(self, data_dir, fn):
-        '''
-        Finds appropriate image and label full filenames for list item and validates these files exists
-        :param data_dir: dir base for filename from list
-        :param fn: filename of image file relative to data_dir
-        :return: image filename, label filename or None, None if no label file exists
-        '''
         def check_label_ext(image_fn, ext):
             if not os.path.isfile(image_fn):
                 return None
@@ -304,42 +235,20 @@ class BrailleSubDataset:
         return None, None
 
     def read_annotation(self, label_filename, width, height):
-        '''
-        Reads annotation file (DSBI or LabelMe)
-        :param label_filename: annotation file (txt for DSBI or JSON for LabelMe
-        :return: list: [(left,top,right,bottom,label), ...] where coords are (0..1), label is int [1..63]
-        '''
         ext = label_filename.rsplit('.', 1)[-1]
-        if ext == 'txt':
-            return dsbi.read_DSBI_annotation(label_filename, width, height,
-                                             self.params.data.get('rect_margin', 0.3),
-                                             self.params.data.get('get_points', False))
-        elif ext == 'json':
+        if ext == 'json':
             return read_LabelMe_annotation(label_filename, self.params.data.get('get_points', False))
         else:
             raise ValueError("unsupported label file type: " + ext)
 
 
 def limiting_scaler(source, dest):
-    '''
-    Creates function to convert coordinates from source scale to dest with limiting to [0..dest)
-    :param source: source scale
-    :param dest: dest scale
-    :return: function f(x) for linear conversion [0..sousce)->[0..dest) so that
-        f(0) = 0, f(source-1) = (source-1)/source*dest, f(x<0)=0, f(x>=source) = (source-1)/source*dest
-    '''
     def scale(x):
         return int(min(max(0, x), source-1)) * dest/source
     return scale
 
 
 def read_LabelMe_annotation(label_filename, get_points):
-    '''
-    Reads LabelMe (see https://github.com/IlyaOvodov/labelme labelling tool) annotation JSON file.
-    :param label_filename: path to LabelMe annotation JSON file
-    :return: list of rect objects. Each rect object is a tuple (left, top, right, bottom, label) where
-        left..bottom are in [0,1), label is int in [1..63]
-    '''
     if get_points:
         raise NotImplementedError("read_annotation get_point mode not implemented for LabelMe annotation")
     with open(label_filename, 'r', encoding='cp1251') as opened_json:
@@ -362,35 +271,6 @@ def read_LabelMe_annotation(label_filename, get_points):
 
 
 def create_dataloader(params, collate_fn, list_file_names, shuffle, mode = 'train', verbose = 0):
-    '''
-    :param params: params AttrDict
-    :param collate_fn: converts batch from BrailleDataset output to format required by model
-    :return: pytorch DataLoader
-    '''
     dataset = BrailleDataset(params, list_file_names=list_file_names, mode=mode, verbose=verbose)
     loader = torch.utils.data.DataLoader(dataset, params.data.batch_size, shuffle=shuffle, num_workers=0, collate_fn=collate_fn)
     return loader
-
-
-if __name__ == '__main__':
-    from ovotools import AttrDict
-
-    assert rect_hflip( (0,1,2,3, lt.label010_to_int('111000'),) ) == (0,1,2,3, lt.label010_to_int('000111'),)
-    assert rect_hflip( (0,1,2,3, lt.label010_to_int('000011'),) ) == (0,1,2,3, lt.label010_to_int('011000'),)
-    assert rect_hflip( (0,1,2,3, lt.label010_to_int('001100'),) ) == (0,1,2,3, lt.label010_to_int('100001'),)
-
-    assert rect_vflip( (0,1,2,3, lt.label010_to_int('111100'),) ) == (0,1,2,3, lt.label010_to_int('111001'),)
-    assert rect_vflip( (0,1,2,3, lt.label010_to_int('001011'),) ) == (0,1,2,3, lt.label010_to_int('100110'),)
-
-    params = AttrDict(data=AttrDict(
-        batch_size=2,
-        get_points=False,
-        rect_margin=0.3
-    ))
-    data_loader = create_dataloader(params, collate_fn = None,
-                                    list_file_names = [os.path.join(local_config.data_path, r"DSBI\data\train.txt")],
-                                    shuffle=False)
-    print(len(data_loader))
-
-
-    print('OK')

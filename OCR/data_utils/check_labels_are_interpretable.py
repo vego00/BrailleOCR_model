@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-"""
-Строит гистрограмму размеров рамок
-"""
 import json
 from pathlib import Path
 from braille_utils import label_tools as lt
@@ -21,7 +18,6 @@ def check_file(file_path):
             print(e)
             print(lbl, rects[i])
 
-
 def check(dir, mask=""):
     if mask == "":
         mask = "**/"
@@ -30,13 +26,3 @@ def check(dir, mask=""):
         if i % 100 == 99:
             print(i, "/", len(img_files))
         check_file(file_path)
-
-
-
-if __name__=="__main__":
-    data_dir = r"D:\Programming.Data\Braille\My\labeled\ASI"
-    mask = ""
-    check(data_dir, mask)
-
-
-

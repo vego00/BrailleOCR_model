@@ -136,55 +136,13 @@ def int_to_letter(int_lbl, langs):
     return None
 
 
-# global dict: letter (or spec. string) -> set of labels123 from different dicts from letters.letter_dicts
 reverce_dict = defaultdict(set)
 for d in letters.letter_dicts.values():
     for lbl123, char in d.items():
         reverce_dict[char].add(lbl123)
 
-# global list of 64 bools indicating what labels are valid in most common language dicts
 label_is_valid = [
     True if (int_to_letter(int_label, ['SYM','RU', 'EN', 'NUM']) is not None) else False
     for int_label in range(64)
 ]
 
-
-if __name__ == '__main__':
-    assert label010_to_int('100000') == 1
-    assert label010_to_int('101000') == 1+4
-    assert label010_to_int('000001') == 32
-
-    assert label_hflip(label010_to_int('111000')) == label010_to_int('000111')
-    assert label_hflip(label010_to_int('000011')) == label010_to_int('011000')
-    assert label_hflip(label010_to_int('001100')) == label010_to_int('100001')
-
-    assert label_vflip(label010_to_int('111100')) == label010_to_int('111001')
-    assert label_vflip(label010_to_int('001011')) == label010_to_int('100110')
-
-    assert int_to_label010(label010_to_int('001011')) == '001011'
-    assert int_to_label123(label010_to_int('001011')) == '356'
-
-    assert int_to_letter(label010_to_int('110110'),['EN']) == 'g'
-    assert int_to_letter(label010_to_int('000000'),['EN']) is None
-
-    assert int_to_label010(label123_to_int('124')) == '110100'
-    assert int_to_label010(label123_to_int('26')) == '010001'
-    assert int_to_label010(label123_to_int('')) == '000000'
-    #assert int_to_label010(label123_to_int('8')) == '000000'
-
-    assert int_to_label010(human_label_to_int('1')) == '100000'
-    assert int_to_label010(human_label_to_int('CC')) == '000110'
-    assert int_to_label010(human_label_to_int('xx')) == '111111'
-    assert int_to_label010(human_label_to_int('Хх')) == '111111'  # русский
-    assert int_to_label010(human_label_to_int('##')) == '001111'
-    assert int_to_label010(human_label_to_int('а')) == '100000'
-    assert int_to_label010(human_label_to_int('Б')) == '110000'
-    assert int_to_label010(human_label_to_int('2')) == '110000'
-
-    print([
-        (label_is_valid[int_lbl], int_to_label123(int_lbl), int_to_letter(int_lbl, ['RU']))
-        for int_lbl in range(64)
-    ])
-    print(sum(label_is_valid))
-
-    print('OK')
