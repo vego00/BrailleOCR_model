@@ -15,3 +15,5 @@ dotflow_keypair.pem
 OCR/__pycache__
 __pycache__
 app.log
+local.py
+OCR/model/refine_json.py

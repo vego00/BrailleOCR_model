@@ -1,4 +1,3 @@
-import OCR.run_ocr_app as run_ocr_app
 import OCR.local_config as local_config
 import OCR.model.infer_retinanet as infer_retinanet
 import logging
@@ -31,7 +30,7 @@ recognizer = infer_retinanet.BrailleInference(
 def proccess_OCR(image_file):
     logging.info("Process: OCR")
     try:
-        boxes, brl_lines, image_url = run_ocr_app.run_ocr(recognizer, image_file)
+        boxes, brl_lines, image_url = recognizer.run_and_save(image_file)
         return jsonify({'boxes': boxes, 'brl': brl_lines, 'image_url': image_url}), 200
     except KeyError as e:
         logging.error('키 오류 발생', exc_info=True)
